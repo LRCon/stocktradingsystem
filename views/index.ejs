@@ -72,7 +72,7 @@
       <section>
         <div class="section-header">
           <h2>Available Stocks</h2>
-          <a class="secondary-btn" href="trade.html">Place Trade</a>
+          <a class="secondary-btn" href="/trade">Place Trade</a>
         </div>
         <div id="stockGrid" class="stock-grid"></div>
       </section>
@@ -167,7 +167,7 @@
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
       App.logout();
-      window.location.href = 'login.ejs';
+      window.location.href = '/login';
     });
     document.getElementById('simulateBtn').addEventListener('click', () => {
       App.simulatePrices();
