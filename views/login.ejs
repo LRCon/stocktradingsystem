@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market 19 | Login</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Stock Market 19<span style="color:var(--accent)">.</span></h1>
+        <p>Fake Data till backend is complete</p>
+      </div>
+
+      <div class="notice" style="margin-bottom:18px;">
+        Demo accounts:<br>
+        <strong>Admin:</strong> admin@market19.com / Admin123! / MFA 428913<br>
+        <strong>Customer:</strong> customer@market19.com / Customer123! / MFA 654321
+      </div>
+
+      <section id="loginPanel">
+        <form id="loginForm">
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="loginEmail" required placeholder="name@example.com">
+          </div>
+          <div class="form-row">
+            <label>Password</label>
+            <input type="password" id="loginPassword" required placeholder="Enter password">
+          </div>
+          <div class="btn-row">
+            <button class="action-btn" type="submit">Sign in</button>
+            <button class="secondary-btn" type="button" id="showRegisterBtn">Create account</button>
+          </div>
+          <p class="message" id="loginMessage"></p>
+        </form>
+      </section>
+
+      <section id="registerPanel" class="hidden">
+        <form id="registerForm">
+          <div class="grid-2">
+            <div class="form-row">
+              <label>Full Name</label>
+              <input type="text" id="regFullName" required placeholder="Jordan Lee">
+            </div>
+            <div class="form-row">
+              <label>Username</label>
+              <input type="text" id="regUsername" required placeholder="jlee1">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="regEmail" required placeholder="jordan@example.com">
+          </div>
+          <div class="grid-2">
+            <div class="form-row">
+              <label>Password</label>
+              <input type="password" id="regPassword" required placeholder="At least 8 characters">
+            </div>
+            <div class="form-row">
+              <label>Confirm Password</label>
+              <input type="password" id="regConfirmPassword" required placeholder="Repeat password">
+            </div>
+          </div>
+          <div class="notice" style="margin-bottom:14px;">MFA is enabled by default for new users in this prototype.</div>
+          <div class="btn-row">
+            <button class="action-btn" type="submit">Register</button>
+            <button class="secondary-btn" type="button" id="showLoginBtn">Back to sign in</button>
+          </div>
+          <p class="message" id="registerMessage"></p>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    lucide.createIcons();
+    const loginPanel = document.getElementById('loginPanel');
+    const registerPanel = document.getElementById('registerPanel');
+    const loginMessage = document.getElementById('loginMessage');
+    const registerMessage = document.getElementById('registerMessage');
+
+    document.getElementById('showRegisterBtn').addEventListener('click', () => {
+      loginPanel.classList.add('hidden');
+      registerPanel.classList.remove('hidden');
+      loginMessage.textContent = '';
+    });
+
+    document.getElementById('showLoginBtn').addEventListener('click', () => {
+      registerPanel.classList.add('hidden');
+      loginPanel.classList.remove('hidden');
+      registerMessage.textContent = '';
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const response = App.loginUser(
+        document.getElementById('loginEmail').value.trim(),
+        document.getElementById('loginPassword').value
+      );
+      loginMessage.className = 'message';
+      loginMessage.textContent = response.message;
+      if (!response.success) {
+        loginMessage.classList.add('error-text');
+        return;
+      }
+      sessionStorage.setItem('mp_login_user', JSON.stringify(response.user));
+      window.location.href = 'mfa.html';
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const password = document.getElementById('regPassword').value;
+      const confirmPassword = document.getElementById('regConfirmPassword').value;
+      if (password.length < 8) {
+        registerMessage.className = 'message error-text';
+        registerMessage.textContent = 'Password must be at least 8 characters.';
+        return;
+      }
+      if (password !== confirmPassword) {
+        registerMessage.className = 'message error-text';
+        registerMessage.textContent = 'Passwords do not match.';
+        return;
+      }
+      const result = App.registerUser({
+        fullName: document.getElementById('regFullName').value.trim(),
+        username: document.getElementById('regUsername').value.trim(),
+        email: document.getElementById('regEmail').value.trim(),
+        password
+      });
+      registerMessage.className = result.success ? 'message success-text' : 'message error-text';
+      registerMessage.textContent = result.success
+        ? 'Account created. Sign in with your new email and password, then enter MFA code 654321.'
+        : result.message;
+      if (result.success) document.getElementById('registerForm').reset();
+    });
+  </script>
+</body>
+</html>

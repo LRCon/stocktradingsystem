@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market 19 | Trade</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <h2 class="logo">Stock Market 19</span></h2>
+      <ul class="nav-links">
+        <li><a href="index.html"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a></li>
+        <li><a href="trade.html" class="active"><i data-lucide="badge-dollar-sign"></i><span>Trade</span></a></li>
+        <li><a href="cash.html"><i data-lucide="wallet"></i><span>Cash Account</span></a></li>
+        <li><a href="orders.html"><i data-lucide="receipt"></i><span>Orders</span></a></li>
+        <li><a href="transactions.html"><i data-lucide="history"></i><span>Transactions</span></a></li>
+        <li><a href="admin-stocks.html" id="adminNav"><i data-lucide="shield"></i><span>Admin</span></a></li>
+      </ul>
+    </nav>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Trade Stock</h1>
+          <p>Orders are placed as pending first so the customer can cancel before execution.</p>
+        </div>
+        <div class="badge" id="marketBadge"></div>
+      </header>
+
+      <div class="grid-2">
+        <section class="form-card">
+          <h2>Place Order</h2>
+          <form id="tradeForm">
+            <div class="form-row">
+              <label>Stock</label>
+              <select id="stockSelect"></select>
+            </div>
+            <div class="grid-2">
+              <div class="form-row">
+                <label>Price Per Share</label>
+                <input id="priceField" disabled>
+              </div>
+              <div class="form-row">
+                <label>Quantity</label>
+                <input id="quantityField" type="number" min="1" required placeholder="Number of shares">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Total</label>
+              <input id="totalField" disabled>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="action-btn" id="buyBtn">Place Buy Order</button>
+              <button type="button" class="secondary-btn" id="sellBtn">Place Sell Order</button>
+            </div>
+            <p class="message" id="tradeMessage"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Selected Stock</h2>
+          <div id="stockPreview"></div>
+        </section>
+      </div>
+
+      <section>
+        <div class="section-header">
+          <h2>Pending Orders</h2>
+          <a class="secondary-btn" href="orders.html">Manage Orders</a>
+        </div>
+        <div id="pendingOrders"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    lucide.createIcons();
+    const user = App.requireAuth(['customer', 'admin']);
+    if (!user) {}
+    document.getElementById('adminNav').style.display = user.role === 'admin' ? 'flex' : 'none';
+
+    const stockSelect = document.getElementById('stockSelect');
+    const priceField = document.getElementById('priceField');
+    const quantityField = document.getElementById('quantityField');
+    const totalField = document.getElementById('totalField');
+    const tradeMessage = document.getElementById('tradeMessage');
+
+    function renderHeader() {
+      const market = App.marketSummary();
+      const badge = document.getElementById('marketBadge');
+      badge.textContent = market.status;
+      badge.className = `badge ${App.isMarketOpen() ? 'success' : 'warning'}`;
+    }
+
+    function renderSelect() {
+      const stocks = App.getStocks();
+      stockSelect.innerHTML = stocks.map(stock => `<option value="${stock.symbol}">${stock.companyName} (${stock.symbol})</option>`).join('');
+      updatePreview();
+    }
+
+    function updatePreview() {
+      const stock = App.getStockBySymbol(stockSelect.value);
+      if (!stock) return;
+      priceField.value = App.currency(stock.currentPrice);
+      const quantity = Number(quantityField.value || 0);
+      totalField.value = quantity ? App.currency(stock.currentPrice * quantity) : '';
+      document.getElementById('stockPreview').innerHTML = `
+        <div class="stock-card">
+          <h3>${stock.companyName}</h3>
+          <div class="subtext">${stock.symbol}</div>
+          <div class="price">${App.currency(stock.currentPrice)}</div>
+          <div class="meta-list">
+            <div>Opening Price: ${App.currency(stock.openingPrice)}</div>
+            <div>Daily High: ${App.currency(stock.dayHigh)}</div>
+            <div>Daily Low: ${App.currency(stock.dayLow)}</div>
+            <div>Volume: ${stock.volume.toLocaleString()}</div>
+            <div>Market Cap: ${App.currency(App.marketCap(stock))}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function submitOrder(side) {
+      const quantity = Number(quantityField.value);
+      if (!quantity || quantity < 1) {
+        tradeMessage.className = 'message error-text';
+        tradeMessage.textContent = 'Enter a valid quantity.';
+        return;
+      }
+      const result = App.placeOrder(user.id, side, stockSelect.value, quantity);
+      tradeMessage.className = result.success ? 'message success-text' : 'message error-text';
+      tradeMessage.textContent = result.success
+        ? `${side} order placed as pending. Go to Orders to execute or cancel it.`
+        : result.message;
+      if (result.success) {
+        quantityField.value = '';
+        totalField.value = '';
+        renderPending();
+      }
+    }
+
+    function renderPending() {
+      const orders = App.getUserOrders(user.id).filter(order => order.status === 'Pending');
+      const area = document.getElementById('pendingOrders');
+      if (!orders.length) {
+        area.innerHTML = '<div class="empty-state">No pending orders right now.</div>';
+        return;
+      }
+      area.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Side</th><th>Symbol</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>
+              ${orders.map(order => `
+                <tr>
+                  <td>${order.side}</td>
+                  <td>${order.symbol}</td>
+                  <td>${order.quantity}</td>
+                  <td>${App.currency(order.total)}</td>
+                  <td>${order.status}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    stockSelect.addEventListener('change', updatePreview);
+    quantityField.addEventListener('input', updatePreview);
+    document.getElementById('buyBtn').addEventListener('click', () => submitOrder('Buy'));
+    document.getElementById('sellBtn').addEventListener('click', () => submitOrder('Sell'));
+
+    renderHeader();
+    renderSelect();
+    renderPending();
+  </script>
+</body>
+</html>
