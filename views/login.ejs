@@ -77,7 +77,7 @@
   </div>
 
   <script src="js/app.js"></script>
-  <script>
+  <!-- <script>
     lucide.createIcons();
     const loginPanel = document.getElementById('loginPanel');
     const registerPanel = document.getElementById('registerPanel');
@@ -138,6 +138,30 @@
         : result.message;
       if (result.success) document.getElementById('registerForm').reset();
     });
-  </script>
+  </script> -->
+<script>
+  lucide.createIcons();
+
+  const loginMessage = document.getElementById('loginMessage');
+
+  document.getElementById('loginForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const response = await App.loginUser(
+      document.getElementById('loginEmail').value.trim(),
+      document.getElementById('loginPassword').value
+    );
+
+    loginMessage.className = 'message';
+    loginMessage.textContent = response.message;
+
+    if (!response.success) {
+      loginMessage.classList.add('error-text');
+      return;
+    }
+
+    window.location.href = '/';
+  });
+</script>
 </body>
 </html>
