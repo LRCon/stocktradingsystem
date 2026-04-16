@@ -53,12 +53,12 @@ const App = (() => {
 
   function requireAuth(roles = []) {
     if (!currentUser) {
-      window.location.href = "login.html";
+      window.location.href = "/login";
       return null;
     }
     if (roles.length && !roles.includes(currentUser.role)) {
       alert("Access denied");
-      window.location.href = "index.html";
+      window.location.href = "/";
       return null;
     }
     return currentUser;
