@@ -34,7 +34,7 @@ app.get('/admin-stocks', (req, res) => {
 
 app.get('/login', (req, res) => {
     
-    res.render('admin');
+    res.render('login');
 
 });
 
