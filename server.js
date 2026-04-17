@@ -193,6 +193,7 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+//get stocks
 app.get('/api/stocks', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
@@ -252,6 +253,142 @@ app.post('/api/stocks', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Create stock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
+//cash routing
+app.get('/api/cash', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+
+    const portfolioResult = await pool.query(
+      `SELECT cash
+       FROM market19.portfolios
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const ordersResult = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM market19.orders
+       WHERE user_id = $1 AND status = 'Pending'`,
+      [userId]
+    );
+
+    const txResult = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM market19.transactions
+       WHERE user_id = $1
+         AND type IN ('Deposit', 'Withdrawal')`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      cash: portfolioResult.rows[0]?.cash ?? 0,
+      pendingOrderCount: ordersResult.rows[0]?.count ?? 0,
+      cashTxnCount: txResult.rows[0]?.count ?? 0
+    });
+  } catch (error) {
+    console.error('Get cash summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
+//cash deposit routing
+app.post('/api/cash/deposit', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const amount = Number(req.body.amount);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid deposit amount.'
+      });
+    }
+
+    await pool.query(
+      `UPDATE market19.portfolios
+       SET cash = cash + $1
+       WHERE user_id = $2`,
+      [amount, userId]
+    );
+
+    await pool.query(
+      `INSERT INTO market19.transactions (user_id, type, amount, status, description)
+       VALUES ($1, 'Deposit', $2, 'Completed', 'Cash deposit')`,
+      [userId, amount]
+    );
+
+    res.json({
+      success: true,
+      message: 'Deposit completed.'
+    });
+  } catch (error) {
+    console.error('Deposit error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
+//cash withdraw routing
+app.post('/api/cash/withdraw', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const amount = Number(req.body.amount);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid withdrawal amount.'
+      });
+    }
+
+    const portfolioResult = await pool.query(
+      `SELECT cash
+       FROM market19.portfolios
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    const currentCash = Number(portfolioResult.rows[0]?.cash ?? 0);
+
+    if (amount > currentCash) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient cash balance.'
+      });
+    }
+
+    await pool.query(
+      `UPDATE market19.portfolios
+       SET cash = cash - $1
+       WHERE user_id = $2`,
+      [amount, userId]
+    );
+
+    await pool.query(
+      `INSERT INTO market19.transactions (user_id, type, amount, status, description)
+       VALUES ($1, 'Withdrawal', $2, 'Completed', 'Cash withdrawal')`,
+      [userId, amount]
+    );
+
+    res.json({
+      success: true,
+      message: 'Withdrawal completed.'
+    });
+  } catch (error) {
+    console.error('Withdraw error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error.'
