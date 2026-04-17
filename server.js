@@ -193,6 +193,51 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+//admin stock function
+app.post('/api/stocks', requireAdmin, async (req, res) => {
+  try {
+    const { companyName, symbol, initialPrice, volume } = req.body;
+
+    if (!companyName || !symbol || !initialPrice || !volume) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required.'
+      });
+    }
+
+    const upperSymbol = symbol.trim().toUpperCase();
+
+    const existing = await pool.query(
+      'SELECT id FROM stocks WHERE symbol = $1',
+      [upperSymbol]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ticker already exists.'
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO stocks (symbol, name, price, opening_price, high, low, volume)
+       VALUES ($1, $2, $3, $3, $3, $3, $4)`,
+      [upperSymbol, companyName.trim(), Number(initialPrice), Number(volume)]
+    );
+
+    res.json({
+      success: true,
+      message: 'Stock created successfully.'
+    });
+  } catch (error) {
+    console.error('Create stock error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
 //servers app on port 3000
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
