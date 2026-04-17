@@ -298,6 +298,7 @@ const App = (() => {
   return {
     loginUser,
     registerUser,
+    getStocks,
     createStock,
     logout
   };
