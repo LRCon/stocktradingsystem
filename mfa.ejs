@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market 19 | MFA</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>Multi-Factor Verification</h1>
+        <p>Enter the one-time code to finish signing in.</p>
+      </div>
+      <div class="notice" id="mfaDetails"></div>
+      <form id="mfaForm" style="margin-top:18px;">
+        <div class="form-row">
+          <label>Verification Code</label>
+          <input type="text" id="mfaCode" required placeholder="6-digit code">
+        </div>
+        <div class="btn-row">
+          <button class="action-btn" type="submit">Verify MFA</button>
+          <a class="secondary-btn" href="login.html">Back</a>
+        </div>
+        <p class="message" id="mfaMessage"></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    const pendingUser = JSON.parse(sessionStorage.getItem('mp_login_user') || 'null');
+    const details = document.getElementById('mfaDetails');
+    const message = document.getElementById('mfaMessage');
+    if (!pendingUser) {
+      window.location.href = 'login.html';
+    } else {
+      details.innerHTML = `<strong>${pendingUser.fullName}</strong><br>Role: ${pendingUser.role}<br>Method: ${pendingUser.mfaMethod}<br>Use the mock code from the login screen for this demo.`;
+    }
+
+    document.getElementById('mfaForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const result = App.verifyMfa(document.getElementById('mfaCode').value.trim());
+      message.className = result.success ? 'message success-text' : 'message error-text';
+      message.textContent = result.success ? 'MFA verified. Redirecting to dashboard...' : result.message;
+      if (result.success) {
+        sessionStorage.removeItem('mp_login_user');
+        setTimeout(() => window.location.href = 'index.html', 400);
+      }
+    });
+  </script>
+</body>
+</html>

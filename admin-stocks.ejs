@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market 19 | Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <h2 class="logo">Stock Market 19</h2>
+      <ul class="nav-links">
+        <li><a href="/"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a></li>
+        <li><a href="/trade"><i data-lucide="badge-dollar-sign"></i><span>Trade</span></a></li>
+        <li><a href="/cash"><i data-lucide="wallet"></i><span>Cash Account</span></a></li>
+        <li><a href="/orders"><i data-lucide="receipt"></i><span>Orders</span></a></li>
+        <li><a href="/transactions"><i data-lucide="history"></i><span>Transactions</span></a></li>
+        <% if (user && user.role === 'admin') { %>
+          <li>
+            <a href="/admin-stocks" class="active">
+              <i data-lucide="shield"></i><span>Admin</span>
+            </a>
+          </li>
+        <% } %>
+        <li>
+          <a href="#" onclick="logoutUser()">
+            <i data-lucide="log-out"></i>
+            <span>Sign Out</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Admin Control Center</h1>
+          <p>Admin-only stock creation, market hours, weekday schedule, and holiday management.</p>
+        </div>
+        <div id="userDisplay" class="user-display"></div>
+      </header>
+
+      <div class="grid-2">
+        <section class="form-card">
+          <h2>Create Stock</h2>
+          <form id="createStockForm">
+            <div class="grid-2">
+              <div class="form-row">
+                <label>Company Name</label>
+                <input id="companyName" required placeholder="Alphabet Inc.">
+              </div>
+              <div class="form-row">
+                <label>Ticker</label>
+                <input id="ticker" required placeholder="GOOGL">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-row">
+                <label>Initial Price</label>
+                <input id="initialPrice" required type="number" min="0.01" step="0.01" placeholder="100.00">
+              </div>
+              <div class="form-row">
+                <label>Volume</label>
+                <input id="volume" required type="number" min="1" step="1" placeholder="1000000">
+              </div>
+            </div>
+
+            <button class="action-btn" type="submit">Create Stock</button>
+            <p class="message" id="stockMessage"></p>
+          </form>
+        </section>
+
+        <section class="form-card">
+          <h2>Market Schedule</h2>
+          <form id="scheduleForm">
+            <div class="grid-2">
+              <div class="form-row">
+                <label>Open Time</label>
+                <input id="openTime" type="time">
+              </div>
+              <div class="form-row">
+                <label>Close Time</label>
+                <input id="closeTime" type="time">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-row">
+                <label>Weekdays Only</label>
+                <select id="weekdaysOnly">
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Trading Enabled</label>
+                <select id="marketOpen">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+            </div>
+
+            <button class="secondary-btn" type="submit">Update Schedule</button>
+            <p class="message" id="scheduleMessage"></p>
+          </form>
+        </section>
+      </div>
+
+      <div class="grid-2" style="margin-top:24px;">
+        <section class="form-card">
+          <h2>Holiday Calendar</h2>
+          <form id="holidayForm">
+            <div class="form-row">
+              <label>Add Market Holiday</label>
+              <input id="holidayDate" type="date">
+            </div>
+            <button class="secondary-btn" type="submit">Add Holiday</button>
+          </form>
+          <div id="holidayList" style="margin-top:16px;"></div>
+        </section>
+
+        <section class="card">
+          <h2>Current Listings</h2>
+          <div id="stockTable"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    lucide.createIcons();
+
+    const user = App.requireAuth(['admin']);
+    if (!user) {}
+
+    const userDisplay = document.getElementById("userDisplay");
+    if (userDisplay && user) {
+      userDisplay.textContent = `Welcome, ${user.fullName || user.username}`;
+    }
+
+    function renderStocks() {
+      const stocks = App.getStocks();
+      document.getElementById('stockTable').innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Company</th>
+                <th>Price</th>
+                <th>Volume</th>
+                <th>Open</th>
+                <th>High</th>
+                <th>Low</th>
+                <th>Market Cap</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${stocks.map(stock => `
+                <tr>
+                  <td>${stock.symbol}</td>
+                  <td>${stock.companyName}</td>
+                  <td>${App.currency(stock.currentPrice)}</td>
+                  <td>${stock.volume.toLocaleString()}</td>
+                  <td>${App.currency(stock.openingPrice)}</td>
+                  <td>${App.currency(stock.dayHigh)}</td>
+                  <td>${App.currency(stock.dayLow)}</td>
+                  <td>${App.currency(App.marketCap(stock))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderSchedule() {
+      const settings = App.getMarketSettings();
+      document.getElementById('openTime').value = settings.openTime;
+      document.getElementById('closeTime').value = settings.closeTime;
+      document.getElementById('weekdaysOnly').value = String(settings.weekdaysOnly);
+      document.getElementById('marketOpen').value = String(settings.marketOpen);
+
+      document.getElementById('holidayList').innerHTML = settings.holidays.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Holiday</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${settings.holidays.map(date => `
+                <tr>
+                  <td>${date}</td>
+                  <td><button class="danger-btn" onclick="removeHoliday('${date}')">Remove</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '<div class="empty-state">No holidays added.</div>';
+    }
+
+    document.getElementById('createStockForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const result = App.createStock({
+        companyName: document.getElementById('companyName').value.trim(),
+        symbol: document.getElementById('ticker').value.trim().toUpperCase(),
+        initialPrice: Number(document.getElementById('initialPrice').value),
+        volume: Number(document.getElementById('volume').value)
+      });
+
+      const message = document.getElementById('stockMessage');
+      message.className = result.success ? 'message success-text' : 'message error-text';
+      message.textContent = result.success ? 'Stock created successfully.' : result.message;
+
+      if (result.success) {
+        document.getElementById('createStockForm').reset();
+      }
+
+      renderStocks();
+    });
+
+    document.getElementById('scheduleForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      App.updateMarketSchedule({
+        openTime: document.getElementById('openTime').value,
+        closeTime: document.getElementById('closeTime').value,
+        weekdaysOnly: document.getElementById('weekdaysOnly').value === 'true',
+        marketOpen: document.getElementById('marketOpen').value === 'true'
+      });
+
+      document.getElementById('scheduleMessage').className = 'message success-text';
+      document.getElementById('scheduleMessage').textContent = 'Market schedule updated.';
+      renderSchedule();
+    });
+
+    document.getElementById('holidayForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const settings = App.getMarketSettings();
+      const date = document.getElementById('holidayDate').value;
+
+      if (!date) return;
+
+      if (!settings.holidays.includes(date)) {
+        settings.holidays.push(date);
+      }
+
+      App.updateMarketSchedule({ holidays: settings.holidays.sort() });
+      document.getElementById('holidayForm').reset();
+      renderSchedule();
+    });
+
+    function removeHoliday(date) {
+      const settings = App.getMarketSettings();
+      App.updateMarketSchedule({
+        holidays: settings.holidays.filter(item => item !== date)
+      });
+      renderSchedule();
+    }
+
+    function logoutUser() {
+      App.logout();
+      window.location.href = "login.html";
+    }
+
+    window.removeHoliday = removeHoliday;
+
+    renderStocks();
+    renderSchedule();
+  </script>
+</body>
+</html>

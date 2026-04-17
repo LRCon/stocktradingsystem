@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Market 19 | Orders</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar">
+      <h2 class="logo">Stock Market 19</span></h2>
+      <ul class="nav-links">
+        <li><a href="/"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a></li>
+        <li><a href="/trade"><i data-lucide="badge-dollar-sign"></i><span>Trade</span></a></li>
+        <li><a href="/cash"><i data-lucide="wallet"></i><span>Cash Account</span></a></li>
+        <li><a href="/orders" class="active"><i data-lucide="receipt"></i><span>Orders</span></a></li>
+        <li><a href="/transactions"><i data-lucide="history"></i><span>Transactions</span></a></li>
+        <% if (user && user.role === 'admin') { %>
+        <li>
+          <a href="/admin-stocks" id="adminNav">
+            <i data-lucide="shield"></i><span>Admin</span>
+          </a>
+        </li>
+        <% } %>
+      </ul>
+    </nav>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Orders</h1>
+          <p>Pending orders can be canceled before execution or manually executed for demo purposes.</p>
+        </div>
+      </header>
+      <div id="ordersArea"></div>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    lucide.createIcons();
+    const user = App.requireAuth(['customer', 'admin']);
+    if (!user) {}
+    document.getElementById('adminNav').style.display = user.role === 'admin' ? 'flex' : 'none';
+
+    function handleOrder(action, id) {
+      const result = action === 'execute' ? App.executeOrder(id, user.id) : App.cancelOrder(id, user.id);
+      alert(result.success ? `Order ${action}d.` : result.message);
+      renderOrders();
+    }
+
+    function renderOrders() {
+      const orders = App.getUserOrders(user.id);
+      const area = document.getElementById('ordersArea');
+      if (!orders.length) {
+        area.innerHTML = '<div class="empty-state">No orders yet. Visit the trade page to place one.</div>';
+        return;
+      }
+      area.innerHTML = `
+        <div class="table-wrap card">
+          <table>
+            <thead><tr><th>Placed</th><th>Side</th><th>Symbol</th><th>Qty</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              ${orders.map(order => `
+                <tr>
+                  <td>${new Date(order.placedAt).toLocaleString()}</td>
+                  <td>${order.side}</td>
+                  <td>${order.symbol}</td>
+                  <td>${order.quantity}</td>
+                  <td>${App.currency(order.total)}</td>
+                  <td>${order.status}</td>
+                  <td>
+                    ${order.status === 'Pending' ? `
+                      <div class="row-actions">
+                        <button class="action-btn" onclick="handleOrder('execute', '${order.id}')">Execute</button>
+                        <button class="danger-btn" onclick="handleOrder('cancel', '${order.id}')">Cancel</button>
+                      </div>
+                    ` : '<span class="muted">No action</span>'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    window.handleOrder = handleOrder;
+    renderOrders();
+  </script>
+</body>
+</html>
