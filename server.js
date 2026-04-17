@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
+const cron = require('node-cron');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -394,6 +395,324 @@ app.post('/api/cash/withdraw', requireAuth, async (req, res) => {
       message: 'Server error.'
     });
   }
+});
+
+//posting orders functions
+app.post('/api/orders', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const { symbol, order_type, quantity } = req.body;
+
+    const qty = Number(quantity);
+    const cleanSymbol = String(symbol || '').trim().toUpperCase();
+    const cleanOrderType = String(order_type || '').trim();
+
+    if (!cleanSymbol || !cleanOrderType || !qty || qty < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid order.'
+      });
+    }
+
+    if (!['Buy', 'Sell'].includes(cleanOrderType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid order type.'
+      });
+    }
+
+    const stockResult = await pool.query(
+      `SELECT symbol, name, price
+       FROM market19.stocks
+       WHERE symbol = $1`,
+      [cleanSymbol]
+    );
+
+    if (stockResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stock not found.'
+      });
+    }
+
+    const stock = stockResult.rows[0];
+    const price = Number(stock.price);
+    const total = Number((price * qty).toFixed(2));
+
+    await pool.query('BEGIN');
+
+    try {
+      if (cleanOrderType === 'Buy') {
+        const portfolioResult = await pool.query(
+          `SELECT cash
+           FROM market19.portfolios
+           WHERE user_id = $1`,
+          [userId]
+        );
+
+        const cash = Number(portfolioResult.rows[0]?.cash ?? 0);
+
+        if (cash < total) {
+          await pool.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient cash balance.'
+          });
+        }
+
+        // reserve cash immediately
+        await pool.query(
+          `UPDATE market19.portfolios
+           SET cash = cash - $1
+           WHERE user_id = $2`,
+          [total, userId]
+        );
+      }
+
+      if (cleanOrderType === 'Sell') {
+        const holdingsResult = await pool.query(
+          `SELECT quantity
+           FROM market19.holdings
+           WHERE user_id = $1 AND symbol = $2`,
+          [userId, cleanSymbol]
+        );
+
+        const ownedShares = Number(holdingsResult.rows[0]?.quantity ?? 0);
+
+        if (ownedShares < qty) {
+          await pool.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient shares to sell.'
+          });
+        }
+      }
+
+      await pool.query(
+        `INSERT INTO market19.orders
+           (user_id, symbol, quantity, price, status, order_type, total)
+         VALUES
+           ($1, $2, $3, $4, 'Pending', $5, $6)`,
+        [userId, cleanSymbol, qty, price, cleanOrderType, total]
+      );
+
+      await pool.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: `${cleanOrderType} order placed as pending.`
+      });
+    } catch (err) {
+      await pool.query('ROLLBACK');
+      throw err;
+    }
+  } catch (error) {
+    console.error('Place order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+  //getting orders
+  app.get('/api/orders/pending', requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user.id;
+
+      const result = await pool.query(
+        `SELECT id, symbol, order_type, quantity, price, total, status, created_at
+        FROM market19.orders
+        WHERE user_id = $1 AND status = 'Pending'
+        ORDER BY created_at DESC`,
+        [userId]
+      );
+
+      res.json({
+        success: true,
+        orders: result.rows
+      });
+    } catch (error) {
+      console.error('Get pending orders error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error.'
+      });
+    }
+  });
+  //pending orders
+  async function processPendingOrders() {
+  try {
+    const result = await pool.query(
+      `SELECT id, user_id, symbol, quantity, price, status, created_at, order_type, total
+       FROM market19.orders
+       WHERE status = 'Pending'
+         AND created_at <= NOW() - INTERVAL '2 minutes'
+       ORDER BY created_at ASC`
+    );
+
+    for (const order of result.rows) {
+      await pool.query('BEGIN');
+
+      try {
+        if (order.order_type === 'Buy') {
+          // cash was already reserved at order placement
+          // now just add holdings
+          await pool.query(
+            `INSERT INTO market19.holdings (user_id, symbol, quantity)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, symbol)
+             DO UPDATE SET quantity = market19.holdings.quantity + EXCLUDED.quantity`,
+            [order.user_id, order.symbol, order.quantity]
+          );
+
+          await pool.query(
+            `INSERT INTO market19.transactions (user_id, type, amount, status, description)
+             VALUES ($1, 'Buy', $2, 'Completed', $3)`,
+            [
+              order.user_id,
+              order.total,
+              `Bought ${order.quantity} shares of ${order.symbol}`
+            ]
+          );
+        } else if (order.order_type === 'Sell') {
+          const holdingsResult = await pool.query(
+            `SELECT quantity
+             FROM market19.holdings
+             WHERE user_id = $1 AND symbol = $2`,
+            [order.user_id, order.symbol]
+          );
+
+          const ownedShares = Number(holdingsResult.rows[0]?.quantity ?? 0);
+
+          if (ownedShares < order.quantity) {
+            await pool.query(
+              `UPDATE market19.orders
+               SET status = 'Canceled',
+                   completed_at = NOW()
+               WHERE id = $1`,
+              [order.id]
+            );
+
+            await pool.query('COMMIT');
+            continue;
+          }
+
+          await pool.query(
+            `UPDATE market19.holdings
+             SET quantity = quantity - $1
+             WHERE user_id = $2 AND symbol = $3`,
+            [order.quantity, order.user_id, order.symbol]
+          );
+
+          await pool.query(
+            `UPDATE market19.portfolios
+             SET cash = cash + $1
+             WHERE user_id = $2`,
+            [order.total, order.user_id]
+          );
+
+          await pool.query(
+            `INSERT INTO market19.transactions (user_id, type, amount, status, description)
+             VALUES ($1, 'Sell', $2, 'Completed', $3)`,
+            [
+              order.user_id,
+              order.total,
+              `Sold ${order.quantity} shares of ${order.symbol}`
+            ]
+          );
+        }
+
+        await pool.query(
+          `UPDATE market19.orders
+           SET status = 'Completed',
+               completed_at = NOW()
+           WHERE id = $1`,
+          [order.id]
+        );
+
+        await pool.query('COMMIT');
+      } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error(`Failed to process order ${order.id}:`, err);
+      }
+    }
+  } catch (error) {
+    console.error('Error processing pending orders:', error);
+  }
+}
+
+//cancel order
+app.post('/api/orders/:id/cancel', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const orderId = Number(req.params.id);
+
+    const orderResult = await pool.query(
+      `SELECT id, user_id, symbol, order_type, quantity, price, total, status
+       FROM market19.orders
+       WHERE id = $1 AND user_id = $2`,
+      [orderId, userId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found.'
+      });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (order.status !== 'Pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only pending orders can be canceled.'
+      });
+    }
+
+    await pool.query('BEGIN');
+
+    try {
+      if (order.order_type === 'Buy') {
+        // refund reserved cash
+        await pool.query(
+          `UPDATE market19.portfolios
+           SET cash = cash + $1
+           WHERE user_id = $2`,
+          [order.total, userId]
+        );
+      }
+
+      await pool.query(
+        `UPDATE market19.orders
+         SET status = 'Canceled',
+             completed_at = NOW()
+         WHERE id = $1`,
+        [orderId]
+      );
+
+      await pool.query('COMMIT');
+
+      res.json({
+        success: true,
+        message: 'Order canceled successfully.'
+      });
+    } catch (err) {
+      await pool.query('ROLLBACK');
+      throw err;
+    }
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+ 
+//schedules pending check ever min
+cron.schedule('* * * * *', async () => {
+  await processPendingOrders();
 });
 
 //servers app on port 3000
