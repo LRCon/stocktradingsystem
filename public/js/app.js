@@ -333,6 +333,15 @@ const App = (() => {
     const response = await fetch('/api/orders/pending');
     return await response.json();
     }
+  
+  //cancel order
+  async function cancelOrder(orderId) {
+    const response = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST'
+    });
+
+    return await response.json();
+  }
 
   //logout
   async function logout() {
@@ -350,6 +359,7 @@ const App = (() => {
     withdrawCash,
     getPendingOrders,
     placeOrder,
+    cancelOrder,
     logout
   };
 })();
