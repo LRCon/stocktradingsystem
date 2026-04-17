@@ -342,6 +342,11 @@ const App = (() => {
 
     return await response.json();
   }
+  //get holdings
+  async function getHoldings() {
+    const response = await fetch('/api/holdings');
+    return await response.json();
+  }
 
   //logout
   async function logout() {
@@ -353,6 +358,7 @@ const App = (() => {
     loginUser,
     registerUser,
     getStocks,
+    getHoldings,
     createStock,
     getCashSummary,
     depositCash,
