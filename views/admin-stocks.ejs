@@ -132,7 +132,7 @@
   </div>
 
   <script src="js/app.js"></script>
-  <script>
+  <!-- <script>
     lucide.createIcons();
 
     const user = App.requireAuth(['admin']);
@@ -278,6 +278,36 @@
 
     renderStocks();
     renderSchedule();
+  </script> -->
+  <script>
+    lucide.createIcons();
+
+    const logoutLink = document.getElementById('logoutLink');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await App.logout();
+      });
+    }
+
+    document.getElementById('createStockForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const result = await App.createStock({
+        companyName: document.getElementById('companyName').value.trim(),
+        symbol: document.getElementById('ticker').value.trim().toUpperCase(),
+        initialPrice: Number(document.getElementById('initialPrice').value),
+        volume: Number(document.getElementById('volume').value)
+      });
+
+      const message = document.getElementById('stockMessage');
+      message.className = result.success ? 'message success-text' : 'message error-text';
+      message.textContent = result.message;
+
+      if (result.success) {
+        document.getElementById('createStockForm').reset();
+      }
+    });
   </script>
 </body>
 </html>
