@@ -255,6 +255,8 @@
 // })();
 
 const App = (() => {
+
+  //login
   async function loginUser(email, password) {
     const response = await fetch('/api/login', {
       method: 'POST',
@@ -264,7 +266,7 @@ const App = (() => {
 
     return await response.json();
   }
-
+  //register
   async function registerUser(userData) {
     const response = await fetch('/api/register', {
       method: 'POST',
@@ -274,12 +276,12 @@ const App = (() => {
 
     return await response.json();
   }
-
+  //get stocks
   async function getStocks() {
     const response = await fetch('/api/stocks');
     return await response.json();
   }
-
+  //create stocks
   async function createStock(stockData) {
     const response = await fetch('/api/stocks', {
       method: 'POST',
@@ -289,12 +291,12 @@ const App = (() => {
 
     return await response.json();
   }
-
+  //get cash
   async function getCashSummary() {
     const response = await fetch('/api/cash');
     return await response.json();
   }
-
+  //deposit cash
   async function depositCash(amount) {
     const response = await fetch('/api/cash/deposit', {
       method: 'POST',
@@ -304,7 +306,7 @@ const App = (() => {
 
     return await response.json();
   }
-
+  //widthraw cash
   async function withdrawCash(amount) {
     const response = await fetch('/api/cash/withdraw', {
       method: 'POST',
@@ -315,19 +317,39 @@ const App = (() => {
     return await response.json();
   }
 
+  //place order
+  async function placeOrder(orderData) {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+  });
+
+    return await response.json();
+  }
+
+  //pending orders
+  async function getPendingOrders() {
+    const response = await fetch('/api/orders/pending');
+    return await response.json();
+    }
+
+  //logout
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   }
 
   return {
-  loginUser,
-  registerUser,
-  getStocks,
-  createStock,
-  getCashSummary,
-  depositCash,
-  withdrawCash,
-  logout
-};
+    loginUser,
+    registerUser,
+    getStocks,
+    createStock,
+    getCashSummary,
+    depositCash,
+    withdrawCash,
+    getPendingOrders,
+    placeOrder,
+    logout
+  };
 })();
