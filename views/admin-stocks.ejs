@@ -17,7 +17,13 @@
         <li><a href="/cash"><i data-lucide="wallet"></i><span>Cash Account</span></a></li>
         <li><a href="/orders"><i data-lucide="receipt"></i><span>Orders</span></a></li>
         <li><a href="/transactions"><i data-lucide="history"></i><span>Transactions</span></a></li>
-        <li><a href="/admin-stocks" class="active"><i data-lucide="shield"></i><span>Admin</span></a></li>
+        <% if (user && user.role === 'admin') { %>
+          <li>
+            <a href="/admin-stocks" class="active">
+              <i data-lucide="shield"></i><span>Admin</span>
+            </a>
+          </li>
+        <% } %>
         <li>
           <a href="#" onclick="logoutUser()">
             <i data-lucide="log-out"></i>
