@@ -189,12 +189,69 @@
     renderPage();
   </script> -->
   <script>
-    lucide.createIcons();
+  lucide.createIcons();
 
-    document.getElementById('logoutLink').addEventListener('click', async (event) => {
-      event.preventDefault();
-      await App.logout();
-    });
-  </script>
+  document.getElementById('logoutLink').addEventListener('click', async (event) => {
+    event.preventDefault();
+    await App.logout();
+  });
+
+  async function renderDashboard() {
+    const cashResult = await App.getCashSummary();
+
+    if (!cashResult.success) {
+      document.getElementById('cashValue').textContent = 'Error';
+      document.getElementById('portfolioValue').textContent = 'Error';
+      return;
+    }
+
+    const cash = Number(cashResult.cash || 0);
+    document.getElementById('cashValue').textContent = `$${cash.toFixed(2)}`;
+    document.getElementById('portfolioValue').textContent = `$${cash.toFixed(2)}`;
+
+    const holdingsArea = document.getElementById('holdingsArea');
+    if (holdingsArea) {
+      holdingsArea.innerHTML = '<div class="empty-state">No holdings yet.</div>';
+    }
+
+    const recentActivity = document.getElementById('recentActivity');
+    if (recentActivity) {
+      recentActivity.innerHTML = '<div class="empty-state">No transactions yet.</div>';
+    }
+
+    const stockGrid = document.getElementById('stockGrid');
+    if (stockGrid) {
+      const stockResult = await App.getStocks();
+
+      if (!stockResult.success || !stockResult.stocks.length) {
+        stockGrid.innerHTML = '<div class="empty-state">No stocks available yet.</div>';
+      } else {
+        stockGrid.innerHTML = stockResult.stocks.map(stock => `
+          <article class="stock-card">
+            <h3>${stock.name}</h3>
+            <div class="subtext">${stock.symbol}</div>
+            <div class="price">$${Number(stock.price).toFixed(2)}</div>
+            <div class="meta-list">
+              <div>Volume: ${Number(stock.volume).toLocaleString()}</div>
+              <div>Open: $${Number(stock.opening_price).toFixed(2)}</div>
+              <div>High: $${Number(stock.high).toFixed(2)}</div>
+              <div>Low: $${Number(stock.low).toFixed(2)}</div>
+            </div>
+          </article>
+        `).join('');
+      }
+    }
+
+    const marketHours = document.getElementById('marketHours');
+    const marketText = document.getElementById('marketText');
+    const marketBadge = document.getElementById('marketBadge');
+
+    if (marketHours) marketHours.textContent = '9:30 AM - 4:00 PM';
+    if (marketText) marketText.textContent = 'Weekdays only.';
+    if (marketBadge) marketBadge.textContent = 'Open';
+  }
+
+  renderDashboard();
+</script>
 </body>
 </html>
