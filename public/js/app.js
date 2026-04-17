@@ -275,6 +275,11 @@ const App = (() => {
     return await response.json();
   }
 
+  async function getStocks() {
+    const response = await fetch('/api/stocks');
+    return await response.json();
+  }
+
   async function createStock(stockData) {
     const response = await fetch('/api/stocks', {
       method: 'POST',
