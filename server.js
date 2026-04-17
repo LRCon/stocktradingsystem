@@ -715,6 +715,34 @@ cron.schedule('* * * * *', async () => {
   await processPendingOrders();
 });
 
+//holdings route
+app.get('/api/holdings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+
+    const result = await pool.query(
+      `SELECT h.symbol, h.quantity, s.price, s.name
+       FROM market19.holdings h
+       JOIN market19.stocks s ON h.symbol = s.symbol
+       WHERE h.user_id = $1
+         AND h.quantity > 0
+       ORDER BY h.symbol ASC`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      holdings: result.rows
+    });
+  } catch (error) {
+    console.error('Get holdings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
 //servers app on port 3000
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
