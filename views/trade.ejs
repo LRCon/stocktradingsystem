@@ -81,7 +81,7 @@
       <section>
         <div class="section-header">
           <h2>Pending Orders</h2>
-          <a class="secondary-btn" href="orders.html">Manage Orders</a>
+          <a class="secondary-btn" href="/orders">Manage Orders</a>
         </div>
         <div id="pendingOrders"></div>
       </section>
@@ -89,7 +89,7 @@
   </div>
 
   <script src="js/app.js"></script>
-  <script>
+  <!-- <script>
     lucide.createIcons();
     const user = App.requireAuth(['customer', 'admin']);
     if (!user) {}
@@ -190,6 +190,132 @@
     renderHeader();
     renderSelect();
     renderPending();
-  </script>
+  </script> -->
+  <script>
+  lucide.createIcons();
+
+  const logoutLink = document.getElementById('logoutLink');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (event) => {
+      event.preventDefault();
+      await App.logout();
+    });
+  }
+
+  const stockSelect = document.getElementById('stockSelect');
+  const priceField = document.getElementById('priceField');
+  const quantityField = document.getElementById('quantityField');
+  const totalField = document.getElementById('totalField');
+  const tradeMessage = document.getElementById('tradeMessage');
+
+  let stocks = [];
+
+  async function renderSelect() {
+    const result = await App.getStocks();
+
+    if (!result.success || !result.stocks.length) {
+      stockSelect.innerHTML = '<option value="">No stocks available</option>';
+      document.getElementById('stockPreview').innerHTML = '<div class="empty-state">No stocks available yet.</div>';
+      return;
+    }
+
+    stocks = result.stocks;
+
+    stockSelect.innerHTML = stocks.map(stock =>
+      `<option value="${stock.symbol}">${stock.name} (${stock.symbol})</option>`
+    ).join('');
+
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const stock = stocks.find(item => item.symbol === stockSelect.value);
+    if (!stock) return;
+
+    const price = Number(stock.price);
+    const quantity = Number(quantityField.value || 0);
+
+    priceField.value = `$${price.toFixed(2)}`;
+    totalField.value = quantity ? `$${(price * quantity).toFixed(2)}` : '';
+
+    document.getElementById('stockPreview').innerHTML = `
+      <div class="stock-card">
+        <h3>${stock.name}</h3>
+        <div class="subtext">${stock.symbol}</div>
+        <div class="price">$${price.toFixed(2)}</div>
+        <div class="meta-list">
+          <div>Opening Price: $${Number(stock.opening_price).toFixed(2)}</div>
+          <div>Daily High: $${Number(stock.high).toFixed(2)}</div>
+          <div>Daily Low: $${Number(stock.low).toFixed(2)}</div>
+          <div>Volume: ${Number(stock.volume).toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function submitOrder(orderType) {
+    const symbol = stockSelect.value;
+    const quantity = Number(quantityField.value);
+
+    if (!symbol || !quantity || quantity < 1) {
+      tradeMessage.className = 'message error-text';
+      tradeMessage.textContent = 'Enter a valid quantity.';
+      return;
+    }
+
+    const result = await App.placeOrder({
+      symbol,
+      order_type: orderType,
+      quantity
+    });
+
+    tradeMessage.className = result.success ? 'message success-text' : 'message error-text';
+    tradeMessage.textContent = result.message;
+
+    if (result.success) {
+      quantityField.value = '';
+      totalField.value = '';
+      await renderPending();
+      updatePreview();
+    }
+  }
+
+  async function renderPending() {
+    const result = await App.getPendingOrders();
+    const area = document.getElementById('pendingOrders');
+
+    if (!result.success || !result.orders.length) {
+      area.innerHTML = '<div class="empty-state">No pending orders right now.</div>';
+      return;
+    }
+
+    area.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Symbol</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody>
+            ${result.orders.map(order => `
+              <tr>
+                <td>${order.order_type}</td>
+                <td>${order.symbol}</td>
+                <td>${order.quantity}</td>
+                <td>$${Number(order.total).toFixed(2)}</td>
+                <td>${order.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  stockSelect.addEventListener('change', updatePreview);
+  quantityField.addEventListener('input', updatePreview);
+  document.getElementById('buyBtn').addEventListener('click', () => submitOrder('Buy'));
+  document.getElementById('sellBtn').addEventListener('click', () => submitOrder('Sell'));
+
+  renderSelect();
+  renderPending();
+</script>
 </body>
 </html>
