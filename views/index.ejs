@@ -210,9 +210,52 @@
     document.getElementById('portfolioValue').textContent = `$${cash.toFixed(2)}`;
 
     const holdingsArea = document.getElementById('holdingsArea');
-    if (holdingsArea) {
-      holdingsArea.innerHTML = '<div class="empty-state">No holdings yet.</div>';
-    }
+      if (holdingsArea) {
+        const holdingsResult = await App.getHoldings();
+
+        if (!holdingsResult.success) {
+          holdingsArea.innerHTML = '<div class="empty-state">Unable to load holdings.</div>';
+        } else if (!holdingsResult.holdings.length) {
+          holdingsArea.innerHTML = '<div class="empty-state">No holdings yet.</div>';
+        } else {
+          let holdingsValue = 0;
+
+          holdingsArea.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Shares</th>
+                    <th>Price</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${holdingsResult.holdings.map(item => {
+                    const price = Number(item.price);
+                    const quantity = Number(item.quantity);
+                    const value = price * quantity;
+                    holdingsValue += value;
+
+                    return `
+                      <tr>
+                        <td>${item.symbol}</td>
+                        <td>${quantity}</td>
+                        <td>$${price.toFixed(2)}</td>
+                        <td>$${value.toFixed(2)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+
+          document.getElementById('portfolioValue').textContent =
+            `$${(cash + holdingsValue).toFixed(2)}`;
+        }
+      }
 
     const recentActivity = document.getElementById('recentActivity');
     if (recentActivity) {
