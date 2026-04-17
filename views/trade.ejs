@@ -280,6 +280,7 @@
     }
   }
 
+  //renders pending transactions
   async function renderPending() {
     const result = await App.getPendingOrders();
     const area = document.getElementById('pendingOrders');
@@ -292,7 +293,16 @@
     area.innerHTML = `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Type</th><th>Symbol</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Symbol</th>
+              <th>Qty</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
           <tbody>
             ${result.orders.map(order => `
               <tr>
@@ -301,6 +311,15 @@
                 <td>${order.quantity}</td>
                 <td>$${Number(order.total).toFixed(2)}</td>
                 <td>${order.status}</td>
+                <td>
+                  <button
+                    class="danger-btn"
+                    type="button"
+                    onclick="cancelPendingOrder(${order.id})"
+                  >
+                    Cancel
+                  </button>
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -308,6 +327,20 @@
       </div>
     `;
   }
+
+  //cancel function
+  async function cancelPendingOrder(orderId) {
+    const result = await App.cancelOrder(orderId);
+
+    tradeMessage.className = result.success ? 'message success-text' : 'message error-text';
+    tradeMessage.textContent = result.message;
+
+    if (result.success) {
+      await renderPending();
+    }
+  }
+
+window.cancelPendingOrder = cancelPendingOrder;
 
   stockSelect.addEventListener('change', updatePreview);
   quantityField.addEventListener('input', updatePreview);
