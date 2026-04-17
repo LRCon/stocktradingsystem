@@ -290,16 +290,44 @@ const App = (() => {
     return await response.json();
   }
 
+  async function getCashSummary() {
+    const response = await fetch('/api/cash');
+    return await response.json();
+  }
+
+  async function depositCash(amount) {
+    const response = await fetch('/api/cash/deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+
+    return await response.json();
+  }
+
+  async function withdrawCash(amount) {
+    const response = await fetch('/api/cash/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    });
+
+    return await response.json();
+  }
+
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   }
 
   return {
-    loginUser,
-    registerUser,
-    getStocks,
-    createStock,
-    logout
-  };
+  loginUser,
+  registerUser,
+  getStocks,
+  createStock,
+  getCashSummary,
+  depositCash,
+  withdrawCash,
+  logout
+};
 })();
