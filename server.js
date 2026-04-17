@@ -193,6 +193,27 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+app.get('/api/stocks', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, symbol, name, price, opening_price, high, low, volume
+       FROM market19.stocks
+       ORDER BY symbol ASC`
+    );
+
+    res.json({
+      success: true,
+      stocks: result.rows
+    });
+  } catch (error) {
+    console.error('Get stocks error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
 //admin stock function
 app.post('/api/stocks', requireAdmin, async (req, res) => {
   try {
@@ -208,7 +229,7 @@ app.post('/api/stocks', requireAdmin, async (req, res) => {
     const upperSymbol = symbol.trim().toUpperCase();
 
     const existing = await pool.query(
-      'SELECT id FROM stocks WHERE symbol = $1',
+      'SELECT id FROM market19.stocks WHERE symbol = $1',
       [upperSymbol]
     );
 
@@ -220,7 +241,7 @@ app.post('/api/stocks', requireAdmin, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO stocks (symbol, name, price, opening_price, high, low, volume)
+      `INSERT INTO market19.stocks (symbol, name, price, opening_price, high, low, volume)
        VALUES ($1, $2, $3, $3, $3, $3, $4)`,
       [upperSymbol, companyName.trim(), Number(initialPrice), Number(volume)]
     );
