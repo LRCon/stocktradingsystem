@@ -464,7 +464,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
-    // Get stock
+    // Get stock price
     const stockResult = await pool.query(
       `SELECT symbol, name, price
        FROM market19.stocks
@@ -885,12 +885,22 @@ app.get('/api/market-settings', requireAuth, async (req, res) => {
 //updating market settings
 app.post('/api/market-settings', requireAdmin, async (req, res) => {
   try {
-    const { openTime, closeTime, weekdaysOnly, tradingEnabled } = req.body;
+    let { openTime, closeTime, weekdaysOnly, tradingEnabled } = req.body;
 
     if (!openTime || !closeTime) {
       return res.status(400).json({
         success: false,
         message: 'Open and close times are required.'
+      });
+    }
+
+    const openValue = openTime.length === 5 ? `${openTime}:00` : openTime;
+    const closeValue = closeTime.length === 5 ? `${closeTime}:00` : closeTime;
+
+    if (closeValue === '00:00:00') {
+      return res.status(400).json({
+        success: false,
+        message: 'Use 23:59:59 for end of day, not 00:00:00.'
       });
     }
 
@@ -906,7 +916,7 @@ app.post('/api/market-settings', requireAdmin, async (req, res) => {
          ORDER BY id ASC
          LIMIT 1
        )`,
-      [openTime, closeTime, weekdaysOnly, tradingEnabled]
+      [openValue, closeValue, weekdaysOnly, tradingEnabled]
     );
 
     res.json({
