@@ -336,6 +336,24 @@
     `;
   }
 
+  async function renderSchedule() {
+    const result = await App.getMarketSettings();
+
+    if (!result.success) {
+      const message = document.getElementById('scheduleMessage');
+      message.className = 'message error-text';
+      message.textContent = 'Unable to load market schedule.';
+      return;
+    }
+
+    const settings = result.settings;
+
+    document.getElementById('openTime').value = String(settings.open_time).slice(0, 5);
+    document.getElementById('closeTime').value = String(settings.close_time).slice(0, 5);
+    document.getElementById('weekdaysOnly').value = String(settings.weekdays_only);
+    document.getElementById('marketOpen').value = String(settings.trading_enabled);
+  }
+
   document.getElementById('createStockForm').addEventListener('submit', async (event) => {
     event.preventDefault();
 
@@ -356,7 +374,27 @@
     }
   });
 
+  document.getElementById('scheduleForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const result = await App.updateMarketSettings({
+      openTime: document.getElementById('openTime').value,
+      closeTime: document.getElementById('closeTime').value,
+      weekdaysOnly: document.getElementById('weekdaysOnly').value === 'true',
+      tradingEnabled: document.getElementById('marketOpen').value === 'true'
+    });
+
+    const message = document.getElementById('scheduleMessage');
+    message.className = result.success ? 'message success-text' : 'message error-text';
+    message.textContent = result.message;
+
+    if (result.success) {
+      await renderSchedule();
+    }
+  });
+
   renderStocks();
+  renderSchedule();
 </script>
 </body>
 </html>
