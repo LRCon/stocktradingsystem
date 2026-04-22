@@ -3,6 +3,7 @@ const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const cron = require('node-cron');
+const { DateTime } = require('luxon');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -421,6 +422,49 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
+    // Check market settings
+    const settingsResult = await pool.query(
+      `SELECT open_time, close_time, weekdays_only, trading_enabled
+       FROM market19.market_settings
+       ORDER BY id ASC
+       LIMIT 1`
+    );
+
+    const settings = settingsResult.rows[0];
+
+    if (!settings || !settings.trading_enabled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trading is currently disabled.'
+      });
+    }
+
+    // Use actual U.S. stock market time zone
+    const now = DateTime.now().setZone('America/New_York');
+    const day = now.weekday; // 1 = Monday, 7 = Sunday
+    const nowMinutes = now.hour * 60 + now.minute;
+
+    if (settings.weekdays_only && (day === 6 || day === 7)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trading is closed on weekends.'
+      });
+    }
+
+    const [openHour, openMinute] = String(settings.open_time).slice(0, 5).split(':').map(Number);
+    const [closeHour, closeMinute] = String(settings.close_time).slice(0, 5).split(':').map(Number);
+
+    const openMinutes = openHour * 60 + openMinute;
+    const closeMinutes = closeHour * 60 + closeMinute;
+
+    if (nowMinutes < openMinutes || nowMinutes > closeMinutes) {
+      return res.status(400).json({
+        success: false,
+        message: 'Market is currently closed.'
+      });
+    }
+
+    // Get stock
     const stockResult = await pool.query(
       `SELECT symbol, name, price
        FROM market19.stocks
@@ -460,7 +504,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
           });
         }
 
-        // reserve cash immediately
+        // Reserve cash immediately
         await pool.query(
           `UPDATE market19.portfolios
            SET cash = cash - $1
@@ -802,6 +846,75 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get transactions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+// get market settings
+app.get('/api/market-settings', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT open_time, close_time, weekdays_only, trading_enabled
+       FROM market19.market_settings
+       ORDER BY id ASC
+       LIMIT 1`
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Market settings not found.'
+      });
+    }
+
+    res.json({
+      success: true,
+      settings: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Get market settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
+//updating market settings
+app.post('/api/market-settings', requireAdmin, async (req, res) => {
+  try {
+    const { openTime, closeTime, weekdaysOnly, tradingEnabled } = req.body;
+
+    if (!openTime || !closeTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Open and close times are required.'
+      });
+    }
+
+    await pool.query(
+      `UPDATE market19.market_settings
+       SET open_time = $1,
+           close_time = $2,
+           weekdays_only = $3,
+           trading_enabled = $4
+       WHERE id = (
+         SELECT id
+         FROM market19.market_settings
+         ORDER BY id ASC
+         LIMIT 1
+       )`,
+      [openTime, closeTime, weekdaysOnly, tradingEnabled]
+    );
+
+    res.json({
+      success: true,
+      message: 'Market schedule updated.'
+    });
+  } catch (error) {
+    console.error('Update market settings error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error.'
