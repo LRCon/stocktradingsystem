@@ -328,6 +328,12 @@ const App = (() => {
     return await response.json();
   }
 
+  //get orders
+  async function getOrders() {
+    const response = await fetch('/api/orders');
+    return await response.json();
+  }
+
   //pending orders
   async function getPendingOrders() {
     const response = await fetch('/api/orders/pending');
@@ -370,6 +376,7 @@ const App = (() => {
     depositCash,
     withdrawCash,
     getPendingOrders,
+    getOrders,
     placeOrder,
     cancelOrder,
     getTransactions,
