@@ -348,6 +348,12 @@ const App = (() => {
     return await response.json();
   }
 
+  //get transactions
+  async function getTransactions() {
+    const response = await fetch('/api/transactions');
+    return await response.json();
+  }
+
   //logout
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
@@ -366,6 +372,7 @@ const App = (() => {
     getPendingOrders,
     placeOrder,
     cancelOrder,
+    getTransactions,
     logout
   };
 })();
