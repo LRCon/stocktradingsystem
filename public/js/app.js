@@ -360,6 +360,22 @@ const App = (() => {
     return await response.json();
   }
 
+  //get market settings
+  async function getMarketSettings() {
+  const response = await fetch('/api/market-settings');
+  return await response.json();
+}
+//update market settings
+async function updateMarketSettings(settingsData) {
+  const response = await fetch('/api/market-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settingsData)
+  });
+
+  return await response.json();
+}
+
   //logout
   async function logout() {
     await fetch('/api/logout', { method: 'POST' });
@@ -380,6 +396,8 @@ const App = (() => {
     placeOrder,
     cancelOrder,
     getTransactions,
+    getMarketSettings,
+    updateMarketSettings,
     logout
   };
 })();
