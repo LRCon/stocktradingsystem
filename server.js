@@ -514,7 +514,7 @@ app.post('/api/orders', requireAuth, async (req, res) => {
     });
   }
 });
-  //getting orders
+  //getting orders pending
   app.get('/api/orders/pending', requireAuth, async (req, res) => {
     try {
       const userId = req.session.user.id;
@@ -539,7 +539,33 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
   });
-  //pending orders
+
+  //getting orders for oders page
+  app.get('/api/orders', requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user.id;
+
+      const result = await pool.query(
+        `SELECT id, symbol, order_type, quantity, price, total, status, created_at
+        FROM market19.orders
+        WHERE user_id = $1
+        ORDER BY created_at DESC`,
+        [userId]
+      );
+
+      res.json({
+        success: true,
+        orders: result.rows
+      });
+    } catch (error) {
+      console.error('Get orders error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error.'
+      });
+    }
+  });
+  //check for finished pending orders after 2 minutes, pending orders are set to resolve after 5 minutes on server
   async function processPendingOrders() {
   try {
     const result = await pool.query(
