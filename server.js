@@ -422,7 +422,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
-    // Check market settings
     const settingsResult = await pool.query(
       `SELECT open_time, close_time, weekdays_only, trading_enabled
        FROM market19.market_settings
@@ -439,7 +438,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
-    // Use actual U.S. stock market time zone
     const now = DateTime.now().setZone('America/New_York');
     const day = now.weekday; // 1 = Monday, 7 = Sunday
     const nowMinutes = now.hour * 60 + now.minute;
@@ -464,7 +462,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
-    // Get stock price
     const stockResult = await pool.query(
       `SELECT symbol, name, price
        FROM market19.stocks
@@ -504,7 +501,6 @@ app.post('/api/orders', requireAuth, async (req, res) => {
           });
         }
 
-        // Reserve cash immediately
         await pool.query(
           `UPDATE market19.portfolios
            SET cash = cash - $1
@@ -901,6 +897,19 @@ app.post('/api/market-settings', requireAdmin, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Use 23:59:59 for end of day, not 00:00:00.'
+      });
+    }
+
+    const [openHour, openMinute, openSecond] = openValue.split(':').map(Number);
+    const [closeHour, closeMinute, closeSecond] = closeValue.split(':').map(Number);
+
+    const openTotalSeconds = openHour * 3600 + openMinute * 60 + openSecond;
+    const closeTotalSeconds = closeHour * 3600 + closeMinute * 60 + closeSecond;
+
+    if (closeTotalSeconds <= openTotalSeconds) {
+      return res.status(400).json({
+        success: false,
+        message: 'Close time must be later than open time on the same day.'
       });
     }
 
