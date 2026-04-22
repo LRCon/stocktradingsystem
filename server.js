@@ -743,6 +743,46 @@ app.get('/api/holdings', requireAuth, async (req, res) => {
   }
 });
 
+//transactions route
+app.get('/api/transactions', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const role = req.session.user.role;
+
+    let result;
+
+    if (role === 'admin') {
+      result = await pool.query(
+        `SELECT t.id, t.user_id, u.username, u.email, t.type, t.amount, t.status, t.description, t.created_at
+         FROM market19.transactions t
+         JOIN market19.users u ON t.user_id = u.id
+         ORDER BY t.created_at DESC`
+      );
+    } else {
+      result = await pool.query(
+        `SELECT t.id, t.user_id, u.username, u.email, t.type, t.amount, t.status, t.description, t.created_at
+         FROM market19.transactions t
+         JOIN market19.users u ON t.user_id = u.id
+         WHERE t.user_id = $1
+         ORDER BY t.created_at DESC`,
+        [userId]
+      );
+    }
+
+    res.json({
+      success: true,
+      isAdmin: role === 'admin',
+      transactions: result.rows
+    });
+  } catch (error) {
+    console.error('Get transactions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
 //servers app on port 3000
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
