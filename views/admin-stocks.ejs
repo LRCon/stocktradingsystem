@@ -355,6 +355,50 @@
     document.getElementById('marketOpen').value = String(settings.trading_enabled);
   }
 
+  async function renderHolidays() {
+    const result = await App.getMarketHolidays();
+    const holidayList = document.getElementById('holidayList');
+
+    if (!result.success) {
+      holidayList.innerHTML = '<div class="empty-state">Unable to load holidays.</div>';
+      return;
+    }
+
+    if (!result.holidays.length) {
+      holidayList.innerHTML = '<div class="empty-state">No holidays added.</div>';
+      return;
+    }
+
+    holidayList.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Holiday</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.holidays.map(item => `
+              <tr>
+                <td>${item.holiday_date}</td>
+                <td>
+                  <button
+                    class="danger-btn"
+                    type="button"
+                    onclick="removeHoliday(${item.id})"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   document.getElementById('createStockForm').addEventListener('submit', async (event) => {
     event.preventDefault();
 
@@ -394,8 +438,41 @@
     }
   });
 
+  document.getElementById('holidayForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const holidayDate = document.getElementById('holidayDate').value;
+    if (!holidayDate) return;
+
+    const result = await App.addMarketHoliday(holidayDate);
+
+    const message = document.getElementById('scheduleMessage');
+    message.className = result.success ? 'message success-text' : 'message error-text';
+    message.textContent = result.message;
+
+    if (result.success) {
+      document.getElementById('holidayForm').reset();
+      await renderHolidays();
+    }
+  });
+
+  async function removeHoliday(holidayId) {
+    const result = await App.deleteMarketHoliday(holidayId);
+
+    const message = document.getElementById('scheduleMessage');
+    message.className = result.success ? 'message success-text' : 'message error-text';
+    message.textContent = result.message;
+
+    if (result.success) {
+      await renderHolidays();
+    }
+  }
+
+  window.removeHoliday = removeHoliday;
+
   renderStocks();
   renderSchedule();
+  renderHolidays();
 </script>
 </body>
 </html>
