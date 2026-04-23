@@ -306,6 +306,7 @@ button:hover {
   background: transparent;
   color: var(--accent);
   border: 1px solid rgba(61,90,254,.42);
+  display: inline-block;
 }
 
 .danger-btn {
@@ -458,6 +459,7 @@ tr:last-child td {
 
 .section-header h2 {
   font-size: 1.2rem;
+  margin-bottom: 14px;
 }
 
 .list-stack {
