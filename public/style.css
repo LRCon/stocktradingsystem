@@ -510,3 +510,9 @@ tr:last-child td {
     flex-direction: column;
   }
 }
+#marketBadge.success {
+  color: green;
+}
+#marketBadge.warning {
+  color: red;
+}
