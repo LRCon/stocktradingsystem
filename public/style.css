@@ -516,3 +516,6 @@ tr:last-child td {
 #marketBadge.warning {
   color: red;
 }
+#stockSelect option {
+  background-color: transparent;
+}
