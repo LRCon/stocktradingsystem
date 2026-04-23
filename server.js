@@ -621,14 +621,14 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
   });
-  //check for finished pending orders after 2 minutes, pending orders are set to resolve after 5 minutes on server
+  //check for finished pending orders after 1 minutes, pending orders are set to resolve after 5 minutes on server
   async function processPendingOrders() {
   try {
     const result = await pool.query(
       `SELECT id, user_id, symbol, quantity, price, status, created_at, order_type, total
        FROM market19.orders
        WHERE status = 'Pending'
-         AND created_at <= NOW() - INTERVAL '2 minutes'
+         AND created_at <= NOW() - INTERVAL '5 minutes'
        ORDER BY created_at ASC`
     );
 
