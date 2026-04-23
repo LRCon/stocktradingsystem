@@ -961,10 +961,9 @@ app.post('/api/market-settings', requireAdmin, async (req, res) => {
 app.get('/api/market-status', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT open_time, close_time, weekdays_only, trading_enabled
-       FROM market19.market_settings
-       ORDER BY id ASC
-       LIMIT 1`
+      `SELECT id, TO_CHAR(holiday_date, 'YYYY-MM-DD') AS holiday_date
+      FROM market19.market_holidays
+      ORDER BY holiday_date ASC`
     );
 
     if (result.rows.length === 0) {
