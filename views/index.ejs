@@ -307,19 +307,24 @@
       if (!stockResult.success || !stockResult.stocks.length) {
         stockGrid.innerHTML = '<div class="empty-state">No stocks available yet.</div>';
       } else {
-        stockGrid.innerHTML = stockResult.stocks.map(stock => `
-          <article class="stock-card">
-            <h3>${stock.name}</h3>
-            <div class="subtext">${stock.symbol}</div>
-            <div class="price">$${Number(stock.price).toFixed(2)}</div>
-            <div class="meta-list">
-              <div>Volume: ${Number(stock.volume).toLocaleString()}</div>
-              <div>Open: $${Number(stock.opening_price).toFixed(2)}</div>
-              <div>High: $${Number(stock.high).toFixed(2)}</div>
-              <div>Low: $${Number(stock.low).toFixed(2)}</div>
-            </div>
-          </article>
-        `).join('');
+        stockGrid.innerHTML = stockResult.stocks.map(stock => {
+          const marketCap = Number(stock.volume) * Number(stock.price);
+
+          return `
+            <article class="stock-card">
+              <h3>${stock.name}</h3>
+              <div class="subtext">${stock.symbol}</div>
+              <div class="price">$${Number(stock.price).toFixed(2)}</div>
+              <div class="meta-list">
+                <div>Volume: ${Number(stock.volume).toLocaleString()}</div>
+                <div>Market Cap: $${marketCap.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div>Open: $${Number(stock.opening_price).toFixed(2)}</div>
+                <div>High: $${Number(stock.high).toFixed(2)}</div>
+                <div>Low: $${Number(stock.low).toFixed(2)}</div>
+              </div>
+            </article>
+          `;
+        }).join('');
       }
     }
 
