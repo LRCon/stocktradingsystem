@@ -375,6 +375,11 @@ async function updateMarketSettings(settingsData) {
 
   return await response.json();
 }
+//get market status for badge
+async function getMarketStatus() {
+  const response = await fetch('/api/market-status');
+  return await response.json();
+}
 
   //logout
   async function logout() {
@@ -398,6 +403,7 @@ async function updateMarketSettings(settingsData) {
     getTransactions,
     getMarketSettings,
     updateMarketSettings,
+    getMarketStatus,
     logout
   };
 })();
