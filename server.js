@@ -978,6 +978,7 @@ app.get('/api/market-status', requireAuth, async (req, res) => {
     const now = DateTime.now().setZone('America/New_York');
     const weekday = now.weekday; // 1 = Monday, 7 = Sunday
     const nowMinutes = now.hour * 60 + now.minute;
+    const todayInMarketTz = now.toISODate();
 
     const [openHour, openMinute] = String(settings.open_time).slice(0, 5).split(':').map(Number);
     const [closeHour, closeMinute] = String(settings.close_time).slice(0, 5).split(':').map(Number);
@@ -987,8 +988,35 @@ app.get('/api/market-status', requireAuth, async (req, res) => {
 
     const isWeekend = weekday === 6 || weekday === 7;
     const blockedByWeekend = settings.weekdays_only && isWeekend;
+
+    const holidayResult = await pool.query(
+      `SELECT id
+       FROM market19.market_holidays
+       WHERE holiday_date = $1`,
+      [todayInMarketTz]
+    );
+
+    const blockedByHoliday = holidayResult.rows.length > 0;
+
     const withinHours = nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
-    const isOpen = Boolean(settings.trading_enabled) && !blockedByWeekend && withinHours;
+
+    const isOpen =
+      Boolean(settings.trading_enabled) &&
+      !blockedByWeekend &&
+      !blockedByHoliday &&
+      withinHours;
+
+    let detailText = '';
+
+    if (!settings.trading_enabled) {
+      detailText = 'Trading disabled.';
+    } else if (blockedByHoliday) {
+      detailText = 'Closed for a market holiday.';
+    } else if (blockedByWeekend) {
+      detailText = 'Weekdays only.';
+    } else {
+      detailText = settings.weekdays_only ? 'Weekdays only.' : 'All days allowed.';
+    }
 
     res.json({
       success: true,
@@ -998,9 +1026,7 @@ app.get('/api/market-status', requireAuth, async (req, res) => {
         open: String(settings.open_time).slice(0, 8),
         close: String(settings.close_time).slice(0, 8)
       },
-      detailText: settings.trading_enabled
-        ? (settings.weekdays_only ? 'Weekdays only.' : 'All days allowed.')
-        : 'Trading disabled.'
+      detailText
     });
   } catch (error) {
     console.error('Get market status error:', error);
