@@ -449,6 +449,22 @@ app.post('/api/orders', requireAuth, async (req, res) => {
       });
     }
 
+    const todayInMarketTz = now.toISODate();
+
+    const holidayResult = await pool.query(
+      `SELECT id
+       FROM market19.market_holidays
+       WHERE holiday_date = $1`,
+      [todayInMarketTz]
+    );
+
+    if (holidayResult.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trading is closed for a market holiday.'
+      });
+    }
+
     const [openHour, openMinute] = String(settings.open_time).slice(0, 5).split(':').map(Number);
     const [closeHour, closeMinute] = String(settings.close_time).slice(0, 5).split(':').map(Number);
 
@@ -988,6 +1004,102 @@ app.get('/api/market-status', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get market status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+//holidays route
+app.get('/api/market-holidays', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, holiday_date
+       FROM market19.market_holidays
+       ORDER BY holiday_date ASC`
+    );
+
+    res.json({
+      success: true,
+      holidays: result.rows
+    });
+  } catch (error) {
+    console.error('Get market holidays error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+//add holidays route
+app.post('/api/market-holidays', requireAdmin, async (req, res) => {
+  try {
+    const { holidayDate } = req.body;
+
+    if (!holidayDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Holiday date is required.'
+      });
+    }
+
+    const existing = await pool.query(
+      `SELECT id
+       FROM market19.market_holidays
+       WHERE holiday_date = $1`,
+      [holidayDate]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'That holiday already exists.'
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO market19.market_holidays (holiday_date)
+       VALUES ($1)`,
+      [holidayDate]
+    );
+
+    res.json({
+      success: true,
+      message: 'Holiday added successfully.'
+    });
+  } catch (error) {
+    console.error('Add market holiday error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+//delete holidays route
+app.delete('/api/market-holidays/:id', requireAdmin, async (req, res) => {
+  try {
+    const holidayId = Number(req.params.id);
+
+    const result = await pool.query(
+      `DELETE FROM market19.market_holidays
+       WHERE id = $1
+       RETURNING id`,
+      [holidayId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Holiday not found.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Holiday deleted successfully.'
+    });
+  } catch (error) {
+    console.error('Delete market holiday error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error.'
