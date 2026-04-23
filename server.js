@@ -792,11 +792,6 @@ app.post('/api/orders/:id/cancel', requireAuth, async (req, res) => {
   }
 });
  
-//schedules pending check ever min
-cron.schedule('* * * * *', async () => {
-  await processPendingOrders();
-});
-
 //holdings route
 app.get('/api/holdings', requireAuth, async (req, res) => {
   try {
@@ -1132,6 +1127,112 @@ app.delete('/api/market-holidays/:id', requireAdmin, async (req, res) => {
     });
   }
 });
+
+//updating stock prices
+async function updateStockPrices() {
+  try {
+    const settingsResult = await pool.query(
+      `SELECT open_time, close_time, weekdays_only, trading_enabled
+       FROM market19.market_settings
+       ORDER BY id ASC
+       LIMIT 1`
+    );
+
+    if (settingsResult.rows.length === 0) {
+      console.log('No market settings found. Skipping stock update.');
+      return;
+    }
+
+    const settings = settingsResult.rows[0];
+
+    if (!settings.trading_enabled) {
+      return;
+    }
+
+    const now = DateTime.now().setZone('America/New_York');
+    const day = now.weekday; // 1 = Monday, 7 = Sunday
+    const nowMinutes = now.hour * 60 + now.minute;
+
+    if (settings.weekdays_only && (day === 6 || day === 7)) {
+      return;
+    }
+
+    const todayInMarketTz = now.toISODate();
+
+    const holidayResult = await pool.query(
+      `SELECT id
+       FROM market19.market_holidays
+       WHERE holiday_date = $1`,
+      [todayInMarketTz]
+    );
+
+    if (holidayResult.rows.length > 0) {
+      return;
+    }
+
+    const [openHour, openMinute] = String(settings.open_time).slice(0, 5).split(':').map(Number);
+    const [closeHour, closeMinute] = String(settings.close_time).slice(0, 5).split(':').map(Number);
+
+    const openMinutes = openHour * 60 + openMinute;
+    const closeMinutes = closeHour * 60 + closeMinute;
+
+    const marketIsOpen = nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
+
+    if (!marketIsOpen) {
+      return;
+    }
+
+    const stocksResult = await pool.query(
+      `SELECT id, price, high, low
+       FROM market19.stocks
+       ORDER BY id ASC`
+    );
+
+    for (const stock of stocksResult.rows) {
+      const currentPrice = Number(stock.price);
+
+      // Random movement between -1% and +1%
+      const percentChange = (Math.random() * 2 - 1) * 0.01;
+
+      let newPrice = currentPrice * (1 + percentChange);
+
+      // Keep minimum price at $0.01
+      if (newPrice < 0.01) {
+        newPrice = 0.01;
+      }
+
+      // Round to cents
+      newPrice = Number(newPrice.toFixed(2));
+
+      const currentHigh = Number(stock.high);
+      const currentLow = Number(stock.low);
+
+      const newHigh = Number(Math.max(currentHigh, newPrice).toFixed(2));
+      const newLow = Number(Math.min(currentLow, newPrice).toFixed(2));
+
+      await pool.query(
+        `UPDATE market19.stocks
+         SET price = $1,
+             high = $2,
+             low = $3
+         WHERE id = $4`,
+        [newPrice, newHigh, newLow, stock.id]
+      );
+    }
+  } catch (error) {
+    console.error('Error updating stock prices:', error);
+  }
+}
+
+//schedules stock update every min
+cron.schedule('* * * * *', async () => {
+  await updateStockPrices();
+});
+//schedules pending check ever min
+cron.schedule('* * * * *', async () => {
+  await processPendingOrders();
+});
+
 
 //servers app on port 3000
 app.listen(PORT, () => {
