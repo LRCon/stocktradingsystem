@@ -517,5 +517,6 @@ tr:last-child td {
   color: red;
 }
 #stockSelect option {
-  background-color: transparent;
+  background-color: transparent !important;
+  color: black !important;
 }
