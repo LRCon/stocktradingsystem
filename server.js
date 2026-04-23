@@ -941,6 +941,60 @@ app.post('/api/market-settings', requireAdmin, async (req, res) => {
   }
 });
 
+//market status for badge
+app.get('/api/market-status', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT open_time, close_time, weekdays_only, trading_enabled
+       FROM market19.market_settings
+       ORDER BY id ASC
+       LIMIT 1`
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Market settings not found.'
+      });
+    }
+
+    const settings = result.rows[0];
+    const now = DateTime.now().setZone('America/New_York');
+    const weekday = now.weekday; // 1 = Monday, 7 = Sunday
+    const nowMinutes = now.hour * 60 + now.minute;
+
+    const [openHour, openMinute] = String(settings.open_time).slice(0, 5).split(':').map(Number);
+    const [closeHour, closeMinute] = String(settings.close_time).slice(0, 5).split(':').map(Number);
+
+    const openMinutes = openHour * 60 + openMinute;
+    const closeMinutes = closeHour * 60 + closeMinute;
+
+    const isWeekend = weekday === 6 || weekday === 7;
+    const blockedByWeekend = settings.weekdays_only && isWeekend;
+    const withinHours = nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
+    const isOpen = Boolean(settings.trading_enabled) && !blockedByWeekend && withinHours;
+
+    res.json({
+      success: true,
+      isOpen,
+      badgeText: isOpen ? 'Open' : 'Closed',
+      hoursText: {
+        open: String(settings.open_time).slice(0, 8),
+        close: String(settings.close_time).slice(0, 8)
+      },
+      detailText: settings.trading_enabled
+        ? (settings.weekdays_only ? 'Weekdays only.' : 'All days allowed.')
+        : 'Trading disabled.'
+    });
+  } catch (error) {
+    console.error('Get market status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error.'
+    });
+  }
+});
+
 //servers app on port 3000
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
