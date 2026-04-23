@@ -380,6 +380,29 @@ async function getMarketStatus() {
   const response = await fetch('/api/market-status');
   return await response.json();
 }
+//get holidays
+async function getMarketHolidays() {
+  const response = await fetch('/api/market-holidays');
+  return await response.json();
+}
+//add holidays
+async function addMarketHoliday(holidayDate) {
+  const response = await fetch('/api/market-holidays', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ holidayDate })
+  });
+
+  return await response.json();
+}
+//delete holidays
+async function deleteMarketHoliday(holidayId) {
+  const response = await fetch(`/api/market-holidays/${holidayId}`, {
+    method: 'DELETE'
+  });
+
+  return await response.json();
+}
 
   //logout
   async function logout() {
@@ -403,6 +426,9 @@ async function getMarketStatus() {
     getTransactions,
     getMarketSettings,
     updateMarketSettings,
+    getMarketHolidays,
+    addMarketHoliday,
+    deleteMarketHoliday,
     getMarketStatus,
     logout
   };
