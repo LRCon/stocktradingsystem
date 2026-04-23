@@ -202,6 +202,22 @@
     });
   }
 
+  async function renderMarketBadge() {
+  const marketBadge = document.getElementById('marketBadge');
+  if (!marketBadge) return;
+
+  const result = await App.getMarketStatus();
+
+  if (!result.success) {
+    marketBadge.textContent = 'Closed';
+    marketBadge.className = 'badge warning';
+    return;
+  }
+
+  marketBadge.textContent = result.badgeText;
+  marketBadge.className = `badge ${result.isOpen ? 'success' : 'warning'}`;
+}
+
   const stockSelect = document.getElementById('stockSelect');
   const priceField = document.getElementById('priceField');
   const quantityField = document.getElementById('quantityField');
@@ -347,8 +363,9 @@ window.cancelPendingOrder = cancelPendingOrder;
   document.getElementById('buyBtn').addEventListener('click', () => submitOrder('Buy'));
   document.getElementById('sellBtn').addEventListener('click', () => submitOrder('Sell'));
 
-  renderSelect();
-  renderPending();
+  renderMarketBadge();
+renderSelect();
+renderPending();
 </script>
 </body>
 </html>

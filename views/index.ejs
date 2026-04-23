@@ -323,51 +323,46 @@
       }
     }
 
-    const marketHours = document.getElementById('marketHours');
+const marketHours = document.getElementById('marketHours');
 const marketText = document.getElementById('marketText');
 const marketBadge = document.getElementById('marketBadge');
 
-const marketSettingsResult = await App.getMarketSettings();
+const marketStatusResult = await App.getMarketStatus();
 
-if (!marketSettingsResult.success) {
+const formatTime = (timeString) => {
+  const [hourStr, minuteStr, secondStr] = timeString.split(':');
+  let hour = Number(hourStr);
+  const minute = minuteStr;
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+
+  return secondStr === '00'
+    ? `${hour}:${minute} ${ampm}`
+    : `${hour}:${minute}:${secondStr} ${ampm}`;
+};
+
+if (!marketStatusResult.success) {
   if (marketHours) marketHours.textContent = 'Unavailable';
-  if (marketText) marketText.textContent = 'Unable to load market schedule.';
-  if (marketBadge) marketBadge.textContent = 'Unknown';
+  if (marketText) marketText.textContent = 'Unable to load market status.';
+  if (marketBadge) {
+    marketBadge.textContent = 'Closed';
+    marketBadge.className = 'badge warning';
+  }
 } else {
-  const settings = marketSettingsResult.settings;
-
-  const openTime = String(settings.open_time).slice(0, 8);
-  const closeTime = String(settings.close_time).slice(0, 8);
-
-  const formatTime = (timeString) => {
-    const [hourStr, minuteStr, secondStr] = timeString.split(':');
-    let hour = Number(hourStr);
-    const minute = minuteStr;
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-
-    hour = hour % 12;
-    if (hour === 0) hour = 12;
-
-    return secondStr === '00'
-      ? `${hour}:${minute} ${ampm}`
-      : `${hour}:${minute}:${secondStr} ${ampm}`;
-  };
-
   if (marketHours) {
-    marketHours.textContent = `${formatTime(openTime)} - ${formatTime(closeTime)}`;
+    marketHours.textContent =
+      `${formatTime(marketStatusResult.hoursText.open)} - ${formatTime(marketStatusResult.hoursText.close)}`;
   }
 
-  const textParts = [];
-  textParts.push(settings.weekdays_only ? 'Weekdays only.' : 'All days allowed.');
-  textParts.push(settings.trading_enabled ? 'Trading enabled.' : 'Trading disabled.');
-
   if (marketText) {
-    marketText.textContent = textParts.join(' ');
+    marketText.textContent = marketStatusResult.detailText;
   }
 
   if (marketBadge) {
-    marketBadge.textContent = settings.trading_enabled ? 'Enabled' : 'Disabled';
-    marketBadge.className = `badge ${settings.trading_enabled ? 'success' : 'warning'}`;
+    marketBadge.textContent = marketStatusResult.badgeText;
+    marketBadge.className = `badge ${marketStatusResult.isOpen ? 'success' : 'warning'}`;
   }
 }
   }
